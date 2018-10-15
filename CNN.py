@@ -2,28 +2,44 @@ import tensorflow as tf
 import os
 import pickle
 
-def unpickle(file):
-    with open(file, 'rb') as fo:
-        dict = pickle.load(fo, encoding='bytes')
-    return dict
-
-IMAGE_SIZE = 24
+IMAGE_SIZE = 32
 
 # Global constants describing the CIFAR-10 data set.
 NUM_CLASSES = 10
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 50000
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
 
-filenames = [os.path.join('data/cifar-10-batches-bin', 'data_batch_%d' % i)
-             for i in range(1, 6)]
+DATA = [] # holds images
 
-data = []
+def unpickle(file):
+    with open(file, 'rb') as fo:
+        dict = pickle.load(fo, encoding='bytes')
+    return dict
 
-# takes each batch file and adds it to array
-for dir in filenames:
-    data.append(unpickle(dir))
+def setup():
+
+    filenames = [os.path.join('data/cifar-10-batches-bin', 'data_batch_%d' % i)
+                 for i in range(1, 6)]
+
+    # takes each batch file and adds it to array
+    for dir in filenames:
+        DATA.append(unpickle(dir))
 
 
+def train():
+    # todod
+    print('train')
+    print(DATA[0][b'data'][0])
+    image = tf.convert_to_tensor(DATA[0][b'data'][0], dtype=tf.float64)
+    input = [image, IMAGE_SIZE, IMAGE_SIZE, 3]
+    tf.nn.conv2d(input, [IMAGE_SIZE, IMAGE_SIZE, 3, 1], strides=[1, 1, 1, 1],
+                     padding='SAME')
+    print('lol')
+
+
+
+setup()
+train()
 
 
 
