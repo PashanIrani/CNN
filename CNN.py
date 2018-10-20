@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 import os
 import pickle
+from PIL import Image
+from pathlib import Path
 
 print(tf.__version__)
 IMAGE_SIZE = 32
@@ -185,6 +187,8 @@ full_one_dropout = tf.nn.dropout(full_layer_one,keep_prob=hold_prob)
 
 y_pred = normal_full_layer(full_one_dropout,10)
 
+test = y_pred
+
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true,logits=y_pred))
 
 optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
@@ -193,22 +197,53 @@ train = optimizer.minimize(cross_entropy)
 init = tf.global_variables_initializer()
 
 
+
+
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
-    for i in range(5000):
+    steps = 5000
+    for i in range(steps):
         batch = ch.next_batch(100)
         sess.run(train, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 0.5})
 
         # PRINT OUT A MESSAGE EVERY 100 STEPS
         if i % 100 == 0:
-            print('Currently on step {}'.format(i))
-            print('Accuracy is:')
+
             # Test the Train Model
             matches = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y_true, 1))
 
             acc = tf.reduce_mean(tf.cast(matches, tf.float32))
 
-            print(sess.run(acc, feed_dict={x: ch.test_images, y_true: ch.test_labels, hold_prob: 1.0}))
-            print('\n')
+            accuracy = sess.run(acc, feed_dict={x: ch.test_images, y_true: ch.test_labels, hold_prob: 1.0})
+            print('[{} %] Currently on step {}/{}'.format((i / steps) * 100, i, steps))
+            print('Accuracy is: {}\n'.format(accuracy))
+
+
+    def predict(fileName):
+        dir = "./images/" + fileName
+        try:
+            img = Image.open(dir)
+            img = img.resize([32, 32])
+            input_image_data = np.array(img)
+
+            value = sess.run(tf.argmax(y_pred, 1),
+                             feed_dict={x: [input_image_data], y_true: [list(range(10))], hold_prob: 1.0})
+            print("{} : {}".format(fileName, CLASSES[value[0]]))
+        except:
+            print('file', fileName, 'not found')
+            pass
+
+    while(1):
+        fileName = input("Enter image name to test with (image should exist in the images folder): ")
+        exts = ['.jpg', '.png', '.jpeg']
+
+        if fileName == 'all':
+            for file in os.listdir("images"):
+                for ext in exts:
+                    if file.endswith(ext):
+                        predict(file)
+        else:
+            predict(fileName)
 
