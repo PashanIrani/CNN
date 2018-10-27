@@ -4,6 +4,7 @@ import os
 import pickle
 from PIL import Image
 from pathlib import Path
+import time
 
 print(tf.__version__)
 IMAGE_SIZE = 32
@@ -199,6 +200,7 @@ init = tf.global_variables_initializer()
 
 
 
+start_time = time.time()
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -220,6 +222,11 @@ with tf.Session() as sess:
             print('[{} %] Currently on step {}/{}'.format((i / steps) * 100, i, steps))
             print('Accuracy is: {}\n'.format(accuracy))
 
+
+
+    elapsed_time = time.time() - start_time
+
+    print('Time it took to run', elapsed_time, 's')
 
     def predict(fileName):
         dir = "./images/" + fileName
