@@ -6,10 +6,9 @@ from PIL import Image
 from pathlib import Path
 import time
 
-print(tf.__version__)
 IMAGE_SIZE = 32
 IMAGE_SIZE_CROPPED = 24
-NUM_CHANNELS = 3
+NUM_CHANNELS = 3 # rgb, so 3
 NUM_CLASSES = 10
 CLASSES = ['airplane',
  'automobile',
@@ -31,84 +30,20 @@ def unpickle(file):
 
 
 def setup():
+    '''
+    Reads data
+    '''
+
     filenames = [os.path.join('data', 'data_batch_%d' % i)
                  for i in range(1, 6)]
 
-    # takes each batch file and adds it to array
+    # takes each batch file and adds it to array after unpickling
     for dir in filenames:
         DATA.append(unpickle(dir))
 
     print("completed setup")
 
-
-def conv_net(x, keep_prob):
-
-    return None
-
-def network(images, labels, training=False):
-
-    input_layer = images
-
-    conv1 = tf.layers.conv2d(
-        inputs=input_layer,
-        filters=32,
-        kernel_size=[5, 5],
-        padding="same",
-        activation=tf.nn.relu)
-
-    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
-
-    conv2 = tf.layers.conv2d(
-        inputs=pool1,
-        filters=64,
-        kernel_size=[5, 5],
-        padding="same",
-        activation=tf.nn.relu)
-
-    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
-
-    pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
-
-    dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
-
-    dropout = tf.layers.dropout(
-        inputs=dense, rate=0.4, training=training)
-
-    # Logits Layer
-    logits = tf.layers.dense(inputs=dropout, units=10)
-
-    return logits
-
-    # return y_pred, loss
-
-
-def init_weights(shape):
-    init_random_dist = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(init_random_dist)
-
-def init_bias(shape):
-    init_bias_vals = tf.constant(0.1, shape=shape)
-    return tf.Variable(init_bias_vals)
-
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
-
-def max_pool_2by2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME')
-
-def convolutional_layer(input_x, shape):
-    W = init_weights(shape)
-    b = init_bias([shape[3]])
-    return tf.nn.relu(conv2d(input_x, W) + b)
-
-def normal_full_layer(input_layer, size):
-    input_size = int(input_layer.get_shape()[1])
-    W = init_weights([input_size, size])
-    b = init_bias([size])
-    return tf.matmul(input_layer, W) + b
-
-
+# File helper
 class CifarHelper():
 
     def __init__(self):
@@ -148,18 +83,46 @@ class CifarHelper():
 
 
 def one_hot_encode(vec, vals=10):
-    '''
-    For use to one-hot encode the 10- possible labels
-    '''
     n = len(vec)
     out = np.zeros((n, vals))
     out[range(n), vec] = 1
     return out
 
-setup()
+
+def init_weights(shape):
+    init_random_dist = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(init_random_dist)
 
 
-batch_meta = DATA[0]
+def init_bias(shape):
+    init_bias_vals = tf.constant(0.1, shape=shape)
+    return tf.Variable(init_bias_vals)
+
+
+def conv2d(x, W):
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
+
+def max_pool_2by2(x):
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1], padding='SAME')
+
+
+def convolutional_layer(input_x, shape):
+    W = init_weights(shape)
+    b = init_bias([shape[3]])
+    return tf.nn.relu(conv2d(input_x, W) + b)
+
+
+def normal_full_layer(input_layer, size):
+    input_size = int(input_layer.get_shape()[1])
+    W = init_weights([input_size, size])
+    b = init_bias([size])
+    return tf.matmul(input_layer, W) + b
+
+
+setup()  # get's images ready
+
 data_batch1 = DATA[0]
 data_batch2 = DATA[1]
 data_batch3 = DATA[2]
@@ -169,36 +132,37 @@ test_batch = DATA[4]
 ch = CifarHelper()
 ch.set_up_images()
 
-
 tf.reset_default_graph()
 
-x = tf.placeholder(tf.float32,shape=[None,32,32,3])
-y_true = tf.placeholder(tf.float32,shape=[None,10])
+x = tf.placeholder(tf.float32, shape=[None,32,32,3])
+y_true = tf.placeholder(tf.float32, shape=[None,10])
 hold_prob = tf.placeholder(tf.float32)
 
+# computes 32 features for each 4 by 4 batch for EACh image of 3 channels
 convo_1 = convolutional_layer(x,shape=[4,4,3,32])
 convo_1_pooling = max_pool_2by2(convo_1)
 
 convo_2 = convolutional_layer(convo_1_pooling,shape=[4,4,32,64])
 convo_2_pooling = max_pool_2by2(convo_2)
-convo_2_flat = tf.reshape(convo_2_pooling,[-1,8*8*64])
 
-full_layer_one = tf.nn.relu(normal_full_layer(convo_2_flat,1024))
+# convo_3 = convolutional_layer(convo_2_pooling,shape=[4,4,64,128])
+# convo_4 = convolutional_layer(convo_3,shape=[4,4,128,128])
+# convo_5 = convolutional_layer(convo_4,shape=[4,4,128,64])
+#
+#
+# convo_flat = tf.reshape(convo_5,[-1,8*8*64])
+convo_flat = tf.reshape(convo_2_pooling,[-1,8*8*64])
+full_layer_one = tf.nn.relu(normal_full_layer(convo_flat,1024))
 full_one_dropout = tf.nn.dropout(full_layer_one,keep_prob=hold_prob)
 
 y_pred = normal_full_layer(full_one_dropout,10)
 
-test = y_pred
-
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true,logits=y_pred))
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred))
 
 optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 train = optimizer.minimize(cross_entropy)
 
 init = tf.global_variables_initializer()
-
-
-
 
 start_time = time.time()
 
@@ -208,7 +172,7 @@ with tf.Session() as sess:
     steps = 5000
     for i in range(steps):
         batch = ch.next_batch(100)
-        sess.run(train, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 0.5})
+        sess.run(train, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 0.5}, )
 
         # PRINT OUT A MESSAGE EVERY 100 STEPS
         if i % 100 == 0:
@@ -221,6 +185,9 @@ with tf.Session() as sess:
             accuracy = sess.run(acc, feed_dict={x: ch.test_images, y_true: ch.test_labels, hold_prob: 1.0})
             print('[{} %] Currently on step {}/{}'.format((i / steps) * 100, i, steps))
             print('Accuracy is: {}\n'.format(accuracy))
+            elapsed_time = time.time() - start_time
+
+            print('Time elapsed', elapsed_time, 's')
 
 
 
