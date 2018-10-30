@@ -3,13 +3,15 @@ import numpy as np
 import os
 import pickle
 from PIL import Image
-from pathlib import Path
 import time
+import matplotlib.pyplot as plt
+import math
 
+# image size from data set
 IMAGE_SIZE = 32
-IMAGE_SIZE_CROPPED = 24
+
 NUM_CHANNELS = 3 # rgb, so 3
-NUM_CLASSES = 10
+
 CLASSES = ['airplane',
  'automobile',
  'bird',
@@ -64,7 +66,7 @@ class CifarHelper():
         self.training_images = np.vstack([d[b"data"] for d in self.all_train_batches])
         train_len = len(self.training_images)
 
-        self.training_images = self.training_images.reshape(train_len, 3, 32, 32).transpose(0, 2, 3, 1) / 255
+        self.training_images = self.training_images.reshape(train_len, NUM_CHANNELS, IMAGE_SIZE, IMAGE_SIZE).transpose(0, 2, 3, 1) / 255
         self.training_labels = one_hot_encode(np.hstack([d[b"labels"] for d in self.all_train_batches]), 10)
 
         print("Setting Up Test Images and Labels")
@@ -72,16 +74,21 @@ class CifarHelper():
         self.test_images = np.vstack([d[b"data"] for d in self.test_batch])
         test_len = len(self.test_images)
 
-        self.test_images = self.test_images.reshape(test_len, 3, 32, 32).transpose(0, 2, 3, 1) / 255
+        self.test_images = self.test_images.reshape(test_len, NUM_CHANNELS, IMAGE_SIZE, IMAGE_SIZE).transpose(0, 2, 3, 1) / 255
         self.test_labels = one_hot_encode(np.hstack([d[b"labels"] for d in self.test_batch]), 10)
 
     def next_batch(self, batch_size):
-        x = self.training_images[self.i:self.i + batch_size].reshape(100, 32, 32, 3)
+        x = self.training_images[self.i:self.i + batch_size].reshape(100, IMAGE_SIZE, IMAGE_SIZE, NUM_CHANNELS)
         y = self.training_labels[self.i:self.i + batch_size]
         self.i = (self.i + batch_size) % len(self.training_images)
         return x, y
 
 
+'''
+HELPERS
+'''
+
+#
 def one_hot_encode(vec, vals=10):
     n = len(vec)
     out = np.zeros((n, vals))
@@ -123,39 +130,52 @@ def normal_full_layer(input_layer, size):
 
 setup()  # get's images ready
 
+# put DATA into variables
 data_batch1 = DATA[0]
 data_batch2 = DATA[1]
 data_batch3 = DATA[2]
 data_batch4 = DATA[3]
 test_batch = DATA[4]
 
+# setup images into test and training
 ch = CifarHelper()
 ch.set_up_images()
 
+# cleanup tf graph
 tf.reset_default_graph()
 
-x = tf.placeholder(tf.float32, shape=[None,32,32,3])
-y_true = tf.placeholder(tf.float32, shape=[None,10])
+# input variable for session
+x = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, NUM_CHANNELS])
+y_true = tf.placeholder(tf.float32, shape=[None, 10])
+
+# probability a neuron will be dropped
 hold_prob = tf.placeholder(tf.float32)
 
 # computes 32 features for each 4 by 4 batch for EACh image of 3 channels
-convo_1 = convolutional_layer(x,shape=[4,4,3,32])
+convo_1 = convolutional_layer(x, shape=[4, 4, 3, 32])
+
+
 convo_1_pooling = max_pool_2by2(convo_1)
 
-convo_2 = convolutional_layer(convo_1_pooling,shape=[4,4,32,64])
+convo_2 = convolutional_layer(convo_1_pooling, shape=[4, 4, 32, 64])
 convo_2_pooling = max_pool_2by2(convo_2)
 
-# convo_3 = convolutional_layer(convo_2_pooling,shape=[4,4,64,128])
-# convo_4 = convolutional_layer(convo_3,shape=[4,4,128,128])
-# convo_5 = convolutional_layer(convo_4,shape=[4,4,128,64])
+
+
+# convo_3 = convolutional_layer(convo_2_ pooling, shape=[4,4,64,128])
+# convo_4 = convolutional_layer(convo_3, shape=[4,4,128,128])
+# convo_5 = convolutional_layer(convo_4, shape=[4,4,128,64])
 #
 #
 # convo_flat = tf.reshape(convo_5,[-1,8*8*64])
-convo_flat = tf.reshape(convo_2_pooling,[-1,8*8*64])
-full_layer_one = tf.nn.relu(normal_full_layer(convo_flat,1024))
-full_one_dropout = tf.nn.dropout(full_layer_one,keep_prob=hold_prob)
 
-y_pred = normal_full_layer(full_one_dropout,10)
+# flatten image
+convo_flat = tf.reshape(convo_2_pooling, [-1, 8 * 8 * 64])
+
+full_layer_one = tf.nn.relu(normal_full_layer(convo_flat, 1024))
+full_one_dropout = tf.nn.dropout(full_layer_one, keep_prob=hold_prob)
+
+y_pred = normal_full_layer(full_one_dropout, 10)
 
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred))
 
@@ -166,13 +186,42 @@ init = tf.global_variables_initializer()
 
 start_time = time.time()
 
+
+
+def showFilter(units, actualy_image, title):
+    print(actualy_image.shape)
+    filters = units.shape[3]
+    plt.figure(2, figsize=(20,20))
+    plt.subplots_adjust(hspace=0.8, wspace=0.8)
+    n_columns = 6
+    n_rows = math.ceil(filters / n_columns) + 1
+    for i in range(filters):
+        plt.subplot(n_rows, n_columns, i+1)
+        plt.imshow(units[0,:,:,i], interpolation="nearest", cmap="gray")
+
+    plt.subplot(n_rows, n_columns, len(range(filters))+2)
+    plt.title('actual image')
+    plt.imshow(actualy_image[0], interpolation="nearest", cmap="gray")
+    plt.suptitle(title)
+    plt.show()
+
+showEachFilter = False
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     steps = 5000
     for i in range(steps):
         batch = ch.next_batch(100)
-        sess.run(train, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 0.5}, )
+
+        sess.run(train, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 0.5})
+
+        if showEachFilter:
+            c1 = sess.run(convo_1, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 1})
+            showFilter(c1, batch[0], 'Conv Layer 1')
+
+            c2 = sess.run(convo_2, feed_dict={x: batch[0], y_true: batch[1], hold_prob: 1})
+            showFilter(c2, batch[0], 'Conv Layer 2')
 
         # PRINT OUT A MESSAGE EVERY 100 STEPS
         if i % 100 == 0:
@@ -199,7 +248,7 @@ with tf.Session() as sess:
         dir = "./images/" + fileName
         try:
             img = Image.open(dir)
-            img = img.resize([32, 32])
+            img = img.resize([IMAGE_SIZE, IMAGE_SIZE])
             input_image_data = np.array(img)
 
             value = sess.run(tf.argmax(y_pred, 1),
