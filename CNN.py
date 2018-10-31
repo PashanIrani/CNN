@@ -151,14 +151,13 @@ y_true = tf.placeholder(tf.float32, shape=[None, 10])
 # probability a neuron will be dropped
 hold_prob = tf.placeholder(tf.float32)
 
-# computes 32 features for each 4 by 4 batch for EACh image of 3 channels
-convo_1 = convolutional_layer(x, shape=[4, 4, 3, 32])
+# computes 32 features for each 4 by 4 batch for each image of 3 channels
+# input: 3 x 32 x 32 x 100 tensor for the batch
+convo_1 = convolutional_layer(x, shape=[4, 4, 3, 32])  # output: 32 x 32 x 32 x 100 tensor for the batch
+convo_1_pooling = max_pool_2by2(convo_1)  # output: 32 x 16 x 16 x 100 tensor
 
-
-convo_1_pooling = max_pool_2by2(convo_1)
-
-convo_2 = convolutional_layer(convo_1_pooling, shape=[4, 4, 32, 64])
-convo_2_pooling = max_pool_2by2(convo_2)
+convo_2 = convolutional_layer(convo_1_pooling, shape=[4, 4, 32, 64])  # output: 64 x 16 x 16 x 100 tensor
+convo_2_pooling = max_pool_2by2(convo_2)  # output: 64 x 8 x 8 x 100 tensor
 
 
 
@@ -170,14 +169,15 @@ convo_2_pooling = max_pool_2by2(convo_2)
 # convo_flat = tf.reshape(convo_5,[-1,8*8*64])
 
 # flatten image
-convo_flat = tf.reshape(convo_2_pooling, [-1, 8 * 8 * 64])
+convo_flat = tf.reshape(convo_2_pooling, [-1, 8 * 8 * 64])  # output: 4096 x 100 tensor
 
 full_layer_one = tf.nn.relu(normal_full_layer(convo_flat, 1024))
 full_one_dropout = tf.nn.dropout(full_layer_one, keep_prob=hold_prob)
 
 y_pred = normal_full_layer(full_one_dropout, 10)
 
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred))
+softmax = tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred)
+cross_entropy = tf.reduce_mean(softmax)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 train = optimizer.minimize(cross_entropy)
@@ -187,11 +187,11 @@ init = tf.global_variables_initializer()
 start_time = time.time()
 
 
-
+# shows filters
 def showFilter(units, actualy_image, title):
     print(actualy_image.shape)
     filters = units.shape[3]
-    plt.figure(2, figsize=(20,20))
+    plt.figure(1, figsize=(10,10))
     plt.subplots_adjust(hspace=0.8, wspace=0.8)
     n_columns = 6
     n_rows = math.ceil(filters / n_columns) + 1
@@ -205,7 +205,7 @@ def showFilter(units, actualy_image, title):
     plt.suptitle(title)
     plt.show()
 
-showEachFilter = False
+showEachFilter = True
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
