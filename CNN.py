@@ -205,7 +205,7 @@ def showFilter(units, actualy_image, title):
     plt.suptitle(title)
     plt.show()
 
-showEachFilter = True
+showEachFilter = False
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
